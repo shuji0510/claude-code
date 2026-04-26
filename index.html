@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中小企業庁 委託事業 公募要領 想定試験問題</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="site-header">
+  <h1>中小企業庁 委託事業 公募要領<br><span class="sub">想定試験問題 Web App</span></h1>
+  <p class="note">出典URL: <code>chusho.meti.go.jp/koukai/itaku/kobo/2026/dl/260327001.pdf</code><br>
+  ※PDF本文を直接取得できなかったため、中小企業庁 委託公募要領の一般的論点に基づく想定問題です。</p>
+</header>
+
+<main id="app">
+
+  <section id="start-screen" class="card">
+    <h2>受験設定</h2>
+    <div class="settings">
+      <label>
+        出題数
+        <select id="num-questions">
+          <option value="5">5問</option>
+          <option value="10" selected>10問</option>
+          <option value="20">20問（全問）</option>
+        </select>
+      </label>
+      <label>
+        出題順
+        <select id="order">
+          <option value="random" selected>ランダム</option>
+          <option value="sequential">順番通り</option>
+        </select>
+      </label>
+      <label>
+        モード
+        <select id="mode">
+          <option value="exam" selected>試験モード（採点後に解説）</option>
+          <option value="study">学習モード（即時解説）</option>
+        </select>
+      </label>
+    </div>
+    <button id="start-btn" class="primary">試験開始</button>
+  </section>
+
+  <section id="quiz-screen" class="card hidden">
+    <div class="progress">
+      <span id="progress-text">問 1 / 10</span>
+      <div class="progress-bar"><div id="progress-fill"></div></div>
+    </div>
+    <h2 id="question-text"></h2>
+    <ul id="choices" class="choices"></ul>
+    <div id="feedback" class="feedback hidden"></div>
+    <div class="actions">
+      <button id="submit-btn" class="primary">回答する</button>
+      <button id="next-btn" class="primary hidden">次の問題へ</button>
+    </div>
+  </section>
+
+  <section id="result-screen" class="card hidden">
+    <h2>採点結果</h2>
+    <div class="score">
+      <div class="score-main">
+        <span id="score-num">0</span>
+        <span class="score-total">/ <span id="score-total">10</span> 問正解</span>
+      </div>
+      <div id="score-rate" class="score-rate">正答率 0%</div>
+      <div id="score-grade" class="score-grade"></div>
+    </div>
+    <h3>解説一覧</h3>
+    <ol id="review-list" class="review"></ol>
+    <div class="actions">
+      <button id="retry-btn" class="primary">もう一度挑戦</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <p>本アプリは学習用の想定問題集です。公募要領の正式情報は<br>必ず<a href="https://www.chusho.meti.go.jp/" target="_blank" rel="noopener">中小企業庁</a>の公式PDFをご確認ください。</p>
+</footer>
+
+<script src="questions.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
