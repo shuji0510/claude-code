@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/gen-image.sh:*)",
+      "Bash(scripts/gen-image.sh:*)"
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+
+# Generated images
+image-*.png
+out/
