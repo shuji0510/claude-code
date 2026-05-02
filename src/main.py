@@ -9,19 +9,19 @@ from __future__ import annotations
 
 import sys
 import traceback
+from pathlib import Path
 from typing import List, Tuple
 
 from src.collectors.custom_site import CustomSiteCollector
 from src.collectors.jgrants import JGrantsCollector
-from src.config import DATA_DIR
+from src.config import DATA_DIR, PROJECT_ROOT, load_sources
 from src.logger import get_logger
 from src.models import Subsidy
 from src.notifier import notify_failures
-from src.storage import excel_writer
 from src.storage.db import SubsidyDB
+from src.storage.sheets_writer import SheetsWriter
 
 DB_PATH = DATA_DIR / "subsidies.db"
-XLSX_PATH = DATA_DIR / "subsidies.xlsx"
 
 
 def collect_all(log) -> Tuple[List[Subsidy], int]:
@@ -41,9 +41,25 @@ def collect_all(log) -> Tuple[List[Subsidy], int]:
     return all_items, failures
 
 
+def _resolve_sa_path(raw: str) -> Path:
+    p = Path(raw)
+    return p if p.is_absolute() else PROJECT_ROOT / p
+
+
 def main() -> int:
     log = get_logger()
     log.info("=== 補助金収集 開始 ===")
+
+    output_cfg = load_sources().get("output") or {}
+    spreadsheet_id = output_cfg.get("spreadsheet_id", "").strip()
+    sa_path = _resolve_sa_path(output_cfg.get("service_account_json", ""))
+
+    if not spreadsheet_id or spreadsheet_id == "YOUR_SPREADSHEET_ID_HERE":
+        log.error("config/sources.yaml の output.spreadsheet_id を設定してください")
+        return 2
+    if not sa_path.exists():
+        log.error("サービスアカウントJSONが見つかりません: %s", sa_path)
+        return 2
 
     items, failures = collect_all(log)
 
@@ -61,8 +77,13 @@ def main() -> int:
     finally:
         db.close()
 
-    excel_writer.write(XLSX_PATH, new_items, updates)
-    log.info("Excel 更新: 新規 %d 件 / 更新 %d 件", len(new_items), len(updates))
+    try:
+        writer = SheetsWriter(spreadsheet_id, sa_path)
+        writer.write(new_items, updates)
+    except Exception as e:
+        failures += 1
+        log.error("Sheets 書き込み失敗: %s", e)
+        log.error(traceback.format_exc())
 
     if failures:
         notify_failures(failures, "see logs/")

@@ -6,7 +6,8 @@ venv/
 .env
 .DS_Store
 data/*.db
-data/*.xlsx
 logs/*.log
+config/service_account.json
+config/*.credentials.json
 .idea/
 .vscode/

@@ -1,5 +1,11 @@
 # 補助金収集対象の設定ファイル
 #
+# output:
+#   spreadsheet_id:        書き込み先 Google スプレッドシートのID
+#                          （URL の /d/ と /edit の間の文字列）
+#   service_account_json:  サービスアカウントJSONファイルのパス
+#                          （プロジェクトルートからの相対パス可）
+#
 # jgrants:
 #   keywords:        検索キーワード（OR検索。各キーワードで個別にAPIを叩き重複排除）
 #   target_areas:    補助対象地域フィルタ。47都道府県＋東京23区を初期登録。
@@ -11,6 +17,10 @@
 #   parser: src/parsers/ 配下のモジュール名（拡張子なし）
 #
 # 自治体独自サイトを追加する手順は README.md の「自治体追加手順」を参照。
+
+output:
+  spreadsheet_id: "YOUR_SPREADSHEET_ID_HERE"
+  service_account_json: "config/service_account.json"
 
 jgrants:
   keywords:
