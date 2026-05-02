@@ -1,0 +1,16 @@
+# J-Grants API レスポンスフィールド → 内部キーへのマッピング
+#
+# 内部キー（左辺）は src/models.py の Subsidy データクラスのフィールド名。
+# 値は API レスポンスのキー候補。先頭から順に試し、最初に存在したものを採用。
+# レスポンス構造の変動・項目追加にはこのファイルを編集して追従できる。
+
+id:           [id]
+name:         [name, title]
+organization: [acceptance_organization, organization, ministry, prefecture]
+start_date:   [acceptance_start_datetime, recept_start_datetime, acceptance_start_date]
+end_date:     [acceptance_end_datetime, recept_end_datetime, acceptance_end_date]
+max_amount:   [subsidy_max_limit, max_amount, subsidy_amount_max]
+subsidy_rate: [subsidy_rate, rate, subsidy_ratio]
+target:       [target_number_of_employees, target, use_purpose, target_industry]
+overview:     [detail, summary, subsidy_catch_phrase, name]
+detail_url:   [front_subsidy_detail_page_url, detail_url, url]
