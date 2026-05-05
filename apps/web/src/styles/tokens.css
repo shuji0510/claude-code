@@ -1,0 +1,71 @@
+/*
+ * Theme: Fintech Trust — design tokens
+ * Source of truth: .claude/skills/theme-factory/themes/fintech-trust.md
+ *
+ * Import this once at the top of your global stylesheet, then use
+ * Tailwind utilities (`bg-ink`, `text-cloud`, `border-slate-700`, etc.)
+ * — they resolve to these custom properties.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  /* Surfaces */
+  --color-ink: #0b1220;
+  --color-slate-900: #0f172a;
+  --color-slate-800: #1e293b;
+  --color-slate-700: #334155;
+
+  /* Text */
+  --color-cloud: #f8fafc;
+  --color-mist: #cbd5e1;
+  --color-ash: #94a3b8;
+  --color-steel: #475569;
+
+  /* Accent */
+  --color-trust: #3b82f6;
+  --color-trust-hover: #2563eb;
+  --color-trust-soft: #1d4ed8;
+
+  /* Semantic */
+  --color-gain: #10b981;
+  --color-loss: #ef4444;
+  --color-caution: #f59e0b;
+  --color-info: #38bdf8;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+}
+
+html {
+  background: var(--color-ink);
+  color: var(--color-cloud);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Tabular figures: apply to elements that show numbers (tables, KPIs, amounts). */
+.tabular,
+table,
+[data-numeric] {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum", "lnum";
+}
+
+.font-mono,
+code,
+kbd,
+pre {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-ink), 0 0 0 4px var(--color-trust);
+  border-radius: var(--radius-sm);
+}
