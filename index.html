@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>トモぐらし 〜なかよしアパート〜</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ====== ヘッダー ====== -->
+  <header id="topbar">
+    <div class="brand">
+      <span class="logo">🏠</span>
+      <div class="brand-text">
+        <h1>トモぐらし</h1>
+        <small>〜なかよしアパート〜</small>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="coin" title="しょじきん">🪙 <span id="coinAmount">0</span></div>
+      <div class="day" title="ゲーム内の日数">📅 <span id="dayCount">1</span>日目</div>
+    </div>
+  </header>
+
+  <!-- ====== メイン：アパート ====== -->
+  <main id="building">
+    <div id="rooftop">
+      <span class="cloud c1">☁️</span>
+      <span class="cloud c2">☁️</span>
+      <span class="sun">🌞</span>
+    </div>
+    <div id="rooms"><!-- 部屋はJSで描画 --></div>
+    <div id="ground">
+      <button id="addResidentBtn" class="ground-btn">➕ あたらしい住民</button>
+      <button id="shopBtn" class="ground-btn">🛒 ショップ</button>
+      <button id="nextDayBtn" class="ground-btn primary">🌙 つぎの日へ</button>
+    </div>
+  </main>
+
+  <!-- ====== トースト通知 ====== -->
+  <div id="toastWrap"></div>
+
+  <!-- ====== モーダル：住民作成 ====== -->
+  <div class="overlay hidden" id="createOverlay">
+    <div class="modal">
+      <h2>👤 住民をつくる</h2>
+      <div class="avatar-preview" id="avatarPreview">🙂</div>
+      <div class="field">
+        <label>かお</label>
+        <div class="face-picker" id="facePicker"></div>
+      </div>
+      <div class="field">
+        <label>なまえ</label>
+        <input type="text" id="nameInput" maxlength="8" placeholder="ニックネーム">
+      </div>
+      <div class="field">
+        <label>せいかく</label>
+        <select id="personalitySelect"></select>
+        <p class="hint" id="personalityHint"></p>
+      </div>
+      <div class="field">
+        <label>すきな たべもの</label>
+        <select id="foodSelect"></select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="cancelCreate">やめる</button>
+        <button class="btn primary" id="confirmCreate">にゅうきょ！</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== モーダル：住民詳細 ====== -->
+  <div class="overlay hidden" id="detailOverlay">
+    <div class="modal" id="detailModal"><!-- JSで描画 --></div>
+  </div>
+
+  <!-- ====== モーダル：ショップ ====== -->
+  <div class="overlay hidden" id="shopOverlay">
+    <div class="modal">
+      <h2>🛒 ショップ</h2>
+      <p class="hint">アイテムを買って住民にプレゼントしよう！</p>
+      <div class="shop-grid" id="shopGrid"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="closeShop">とじる</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="game.js"></script>
+</body>
+</html>
