@@ -24,6 +24,7 @@ const el = {
   score: document.getElementById("score"),
   streak: document.getElementById("streak"),
   flagImg: document.getElementById("flag-img"),
+  flagEmoji: document.getElementById("flag-emoji"),
   options: document.getElementById("options"),
   feedback: document.getElementById("feedback"),
   nextBtn: document.getElementById("next-btn"),
@@ -48,6 +49,13 @@ function shuffle(arr) {
 function flagUrl(code) {
   // flagcdn の 320px幅 PNG
   return `https://flagcdn.com/w320/${code}.png`;
+}
+
+// ISOコード（2文字）→ 国旗絵文字（地域表示記号）。画像が読めない環境のフォールバック用。
+function codeToEmoji(code) {
+  return code
+    .toUpperCase()
+    .replace(/./g, (ch) => String.fromCodePoint(0x1f1e6 + ch.charCodeAt(0) - 65));
 }
 
 // ===== 地域ボタン生成 =====
@@ -135,12 +143,16 @@ function nextQuestion() {
   el.score.textContent = `スコア ${state.score}`;
   el.streak.textContent = `🔥 ${state.streak}`;
 
-  el.flagImg.src = flagUrl(correct.code);
+  // 画像を試し、読めなければ国旗絵文字にフォールバック
+  el.flagEmoji.textContent = codeToEmoji(correct.code);
+  el.flagImg.classList.remove("hidden");
+  el.flagEmoji.classList.add("hidden");
   el.flagImg.alt = "国旗";
   el.flagImg.onerror = () => {
-    el.flagImg.removeAttribute("src");
-    el.flagImg.alt = "⚠ 国旗画像を読み込めませんでした（インターネット接続を確認してください）";
+    el.flagImg.classList.add("hidden");
+    el.flagEmoji.classList.remove("hidden");
   };
+  el.flagImg.src = flagUrl(correct.code);
 
   el.options.innerHTML = "";
   choices.forEach((c) => {
