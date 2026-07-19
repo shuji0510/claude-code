@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>世界の国旗当てクイズ 🌍</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>🌍 世界の国旗当てクイズ</h1>
+      <p class="subtitle">表示された国旗の国名を4択から当てよう！</p>
+    </header>
+
+    <!-- スタート画面 -->
+    <section id="start-screen" class="card">
+      <h2>設定</h2>
+
+      <div class="setting">
+        <label>出題する地域</label>
+        <div id="region-buttons" class="chip-group"></div>
+      </div>
+
+      <div class="setting">
+        <label>問題数</label>
+        <div id="count-buttons" class="chip-group">
+          <button class="chip" data-count="10">10問</button>
+          <button class="chip active" data-count="15">15問</button>
+          <button class="chip" data-count="20">20問</button>
+          <button class="chip" data-count="0">無制限</button>
+        </div>
+      </div>
+
+      <button id="start-btn" class="btn-primary">スタート ▶</button>
+    </section>
+
+    <!-- クイズ画面 -->
+    <section id="quiz-screen" class="card hidden">
+      <div class="statusbar">
+        <span id="progress" class="stat">問題 1</span>
+        <span id="score" class="stat">スコア 0</span>
+        <span id="streak" class="stat">🔥 0</span>
+      </div>
+
+      <div class="flag-wrap">
+        <img id="flag-img" class="flag" alt="国旗" />
+      </div>
+
+      <div id="options" class="options"></div>
+
+      <div id="feedback" class="feedback"></div>
+
+      <button id="next-btn" class="btn-primary hidden">次へ →</button>
+      <button id="quit-btn" class="btn-quit">終了して結果を見る</button>
+    </section>
+
+    <!-- 結果画面 -->
+    <section id="result-screen" class="card hidden">
+      <h2>結果発表 🎉</h2>
+      <div id="result-score" class="result-score"></div>
+      <p id="result-message" class="result-message"></p>
+      <div class="result-detail">
+        <div>最大連続正解 <b id="result-best-streak">0</b></div>
+        <div>正答率 <b id="result-rate">0%</b></div>
+      </div>
+      <button id="restart-btn" class="btn-primary">もう一度あそぶ 🔄</button>
+    </section>
+
+    <footer class="footer">国旗画像: flagcdn.com</footer>
+  </div>
+
+  <script src="countries.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
