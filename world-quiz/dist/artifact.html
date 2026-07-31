@@ -450,6 +450,17 @@ const Store = {
   remove(key) {
     try { localStorage.removeItem('wq.' + key); } catch (e) { /* noop */ }
   },
+  // 'wq.best.' ではじまるキーをぜんぶ消す（範囲や問題数の組み合わせを取りこぼさない）
+  removeByPrefix(prefix) {
+    try {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('wq.' + prefix)) keys.push(k);
+      }
+      keys.forEach((k) => localStorage.removeItem(k));
+    } catch (e) { /* noop */ }
+  },
 };
 
 /* ---------------- 効果音（WebAudioでその場で作る） ---------------- */
@@ -615,11 +626,17 @@ function createMap(container, options = {}) {
     if (r.width > 0) pxWidth = r.width;
     return r.height > 0 ? r.width / r.height : 2;
   }
+  // 横長の表示領域では、世界全体（南北1460）が入るだけの幅を許す
+  function maxViewWidth() {
+    return Math.max(WORLD.w, WORLD.h * aspect());
+  }
   function render() {
     const a = aspect();
-    const w = clamp(view.w, 160, WORLD.w);
+    const w = clamp(view.w, 160, maxViewWidth());
     const h = w / a;
-    const cx = clamp(view.cx, WORLD.x + w / 2, WORLD.x + WORLD.w - w / 2);
+    const cx = w >= WORLD.w
+      ? WORLD.x + WORLD.w / 2
+      : clamp(view.cx, WORLD.x + w / 2, WORLD.x + WORLD.w - w / 2);
     const cy = h >= WORLD.h ? WORLD.y + WORLD.h / 2 : clamp(view.cy, WORLD.y + h / 2, WORLD.y + WORLD.h - h / 2);
     view.w = w; view.cx = cx; view.cy = cy;
     svg.setAttribute('viewBox', `${cx - w / 2} ${cy - h / 2} ${w} ${h}`);
@@ -684,11 +701,12 @@ function createMap(container, options = {}) {
 
   /* --- ドラッグ / ホイール / ピンチ操作 --- */
   const pointers = new Map();
-  let dragged = false, pinchStart = null;
+  let dragged = false, pinchStart = null, dragStart = null;
   svg.addEventListener('pointerdown', (e) => {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     svg.setPointerCapture(e.pointerId);
     dragged = false;
+    dragStart = { x: e.clientX, y: e.clientY };
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       pinchStart = { dist: Math.hypot(a.x - b.x, a.y - b.y), w: view.w };
@@ -708,7 +726,8 @@ function createMap(container, options = {}) {
     if (pointers.size === 1) {
       const upp = unitsPerPixel();
       const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
-      if (Math.abs(dx) + Math.abs(dy) > 2) dragged = true;
+      // ゆっくり動かしてもドラッグとみなせるよう、押した場所からの合計距離で判定する
+      if (dragStart && Math.hypot(e.clientX - dragStart.x, e.clientY - dragStart.y) > 6) dragged = true;
       view.cx -= dx * upp;
       view.cy -= dy * upp;
       render();
@@ -717,6 +736,7 @@ function createMap(container, options = {}) {
   function endPointer(e) {
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinchStart = null;
+    if (pointers.size === 0) dragStart = null;
   }
   svg.addEventListener('pointerup', (e) => {
     endPointer(e);
@@ -726,10 +746,13 @@ function createMap(container, options = {}) {
     }
   });
   svg.addEventListener('pointercancel', endPointer);
+  svg.addEventListener('lostpointercapture', endPointer);
   svg.addEventListener('wheel', (e) => {
+    const next = clamp(view.w * (e.deltaY > 0 ? 1.15 : 0.87), 160, maxViewWidth());
+    if (next === view.w) return; // これ以上拡大縮小できないときはページのスクロールにゆずる
     e.preventDefault();
     const before = toMapPoint(e.clientX, e.clientY);
-    view.w = clamp(view.w * (e.deltaY > 0 ? 1.15 : 0.87), 160, WORLD.w);
+    view.w = next;
     render();
     const after = toMapPoint(e.clientX, e.clientY);
     view.cx += before.x - after.x;
@@ -744,6 +767,7 @@ function createMap(container, options = {}) {
     svg, paths, view, setView, render, toMapPoint, unitsPerPixel,
     setClickable(on) { svg.parentElement.classList.toggle('clickable', !!on); },
     clearMarks() {
+      for (const m of marks) if (m.raf) cancelAnimationFrame(m.raf);
       gOverlay.innerHTML = '';
       marks.length = 0;
       for (const code in paths) paths[code].setAttribute('class', 'target');
@@ -753,13 +777,23 @@ function createMap(container, options = {}) {
     },
     // 国を画面の中心に持ってくる（まわりの国も少し見えるようにする）
     focus(code, animate = true, contextRatio = 1, include = null) {
-      const rings = TARGET_RINGS[code];
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const r of rings) {
+      // リングごとの範囲を出し、いちばん大きい島（本土）から遠いものは無視する。
+      // こうしないと、日付変更線をまたぐロシアの範囲が地球一周分になってしまう
+      const boxes = TARGET_RINGS[code].map((r) => {
+        let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
         for (let i = 0; i < r.length; i += 2) {
-          minX = Math.min(minX, r[i]); maxX = Math.max(maxX, r[i]);
-          minY = Math.min(minY, r[i + 1]); maxY = Math.max(maxY, r[i + 1]);
+          a = Math.min(a, r[i]); c = Math.max(c, r[i]);
+          b = Math.min(b, r[i + 1]); d = Math.max(d, r[i + 1]);
         }
+        return { minX: a, minY: b, maxX: c, maxY: d, size: (c - a) * (d - b) };
+      });
+      const main = boxes.reduce((best, x) => (x.size > best.size ? x : best), boxes[0]);
+      const mainCx = (main.minX + main.maxX) / 2;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const box of boxes) {
+        if (Math.abs((box.minX + box.maxX) / 2 - mainCx) > 1500) continue;
+        minX = Math.min(minX, box.minX); maxX = Math.max(maxX, box.maxX);
+        minY = Math.min(minY, box.minY); maxY = Math.max(maxY, box.maxY);
       }
       if (include) { // この点（タップした場所など）も入るように広げる
         minX = Math.min(minX, include.x); maxX = Math.max(maxX, include.x);
@@ -799,14 +833,15 @@ function createMap(container, options = {}) {
       ping.setAttribute('cx', x); ping.setAttribute('cy', y);
       ping.setAttribute('class', 'ping');
       gOverlay.appendChild(ping);
-      marks.push({ el: ping, type: 'ping', x, y });
+      const pingMark = { el: ping, type: 'ping', x, y, raf: 0 };
+      marks.push(pingMark);
       const t0 = performance.now();
       (function grow(now) {
         if (!ping.isConnected) return;
         const t = ((now - t0) % 1400) / 1400;
         ping.setAttribute('r', (6 + t * 42) * markScale());
         ping.setAttribute('opacity', String(1 - t));
-        requestAnimationFrame(grow);
+        pingMark.raf = requestAnimationFrame(grow);
       })(t0);
 
       if (withLabel) {
@@ -856,6 +891,17 @@ function regionOf(country) {
 function poolFor(regionId) {
   const r = REGIONS.find((x) => x.id === regionId) || REGIONS[0];
   return COUNTRIES.filter((c) => c.no >= r.range[0] && c.no <= r.range[1]);
+}
+function countOptions(regionId) {
+  const max = poolFor(regionId).length;
+  return [5, 10, 20, max].filter((v, i, a) => v <= max && a.indexOf(v) === i);
+}
+// 実際に出す問題数。範囲をせまくしても Settings.count は書きかえず、
+// その範囲で選べる数のうち「えらんだ数をこえない最大」を使う
+function effectiveCount() {
+  const options = countOptions(Settings.region);
+  const usable = options.filter((v) => v <= Settings.count);
+  return usable.length ? Math.max(...usable) : Math.min(...options);
 }
 function viewKeyFor(country) {
   const r = regionOf(country);
@@ -953,7 +999,7 @@ const Quiz = {
     clearTimeout(this.autoNextId);
     const pool = opts.pool || poolFor(Settings.region);
     const isTime = mode === 'time';
-    const total = isTime ? Infinity : Math.min(opts.count || Settings.count, pool.length);
+    const total = isTime ? Infinity : Math.min(opts.count || effectiveCount(), pool.length);
     this.state = {
       mode, pool, total, isTime,
       index: 0, correct: 0, answered: 0,
@@ -1092,7 +1138,7 @@ const Quiz = {
     }
     // まちがえたときは「押した場所」と「正解の国」が両方見えるようにうつす
     this.map.focus(answerCode, true, 1, ok ? null : p);
-    setTimeout(() => this.map.showCapital(s.q.country), 420);
+    this.map.showCapital(s.q.country);
     this.judge(ok, detail);
   },
 
@@ -1147,6 +1193,7 @@ const Quiz = {
   finish() {
     clearInterval(this.timerId);
     clearTimeout(this.autoNextId);
+    if (this.map) this.map.clearMarks();
     const s = this.state;
     Sound.finish();
     const total = s.isTime ? s.answered : s.total;
@@ -1297,11 +1344,11 @@ function renderCountChips() {
   const wrap = $('#count-chips');
   const max = poolFor(Settings.region).length;
   wrap.innerHTML = '';
-  const options = [5, 10, 20, max].filter((v, i, a) => v <= max && a.indexOf(v) === i);
-  if (Settings.count > max) Settings.count = max;
+  const options = countOptions(Settings.region);
+  const current = effectiveCount();
   for (const n of options) {
     const b = document.createElement('button');
-    b.className = 'chip' + (n === Settings.count ? ' selected' : '');
+    b.className = 'chip' + (n === current ? ' selected' : '');
     b.textContent = n === max ? `ぜんぶ（${n}問）` : `${n}問`;
     b.addEventListener('click', () => {
       Settings.count = n;
@@ -1333,7 +1380,7 @@ function renderRecords() {
   const rows = [];
   for (const m of MODES) {
     if (m.id === 'study') continue;
-    const suffix = m.id === 'time' ? 'time' : String(Settings.count);
+    const suffix = m.id === 'time' ? 'time' : String(effectiveCount());
     const best = Store.get(`best.${m.id}.${Settings.region}.${suffix}`, 0);
     if (best > 0) rows.push([`${m.emoji} ${m.name}`, `${best} てん`]);
   }
@@ -1400,6 +1447,8 @@ $('#btn-next').addEventListener('click', () => {
 });
 $('#btn-home').addEventListener('click', () => {
   clearInterval(Quiz.timerId);
+  clearTimeout(Quiz.autoNextId);
+  if (Quiz.map) Quiz.map.clearMarks(); // 動きっぱなしのアニメーションを止める
   renderRecords();
   showScreen('home');
 });
@@ -1418,13 +1467,7 @@ $('#btn-sound').addEventListener('click', () => {
 });
 $('#btn-reset-records').addEventListener('click', () => {
   if (!confirm('とくてんのきろくと、にがてリストを消します。よろしいですか？')) return;
-  for (const m of MODES) {
-    for (const r of REGIONS) {
-      for (const suffix of ['time', '5', '10', '20', '60', String(Settings.count)]) {
-        Store.remove(`best.${m.id}.${r.id}.${suffix}`);
-      }
-    }
-  }
+  Store.removeByPrefix('best.');
   Stats.data = {};
   Store.set('stats', {});
   renderRecords();
