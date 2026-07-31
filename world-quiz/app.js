@@ -150,13 +150,14 @@ function countryAtPoint(px, py) {
 }
 
 // 表示範囲のプリセット（左上x,左上y,幅,高さ）
+// 名前は出題範囲チップ（REGIONS）と同じ言い方にそろえる
 const VIEWS = {
   world: { name: '世界', box: [0, 40, 3600, 1460] },
-  america: { name: 'アメリカ', box: [400, 175, 1085, 1290] },
+  america: { name: 'アメリカ大陸', box: [400, 175, 1085, 1290] },
   europe: { name: 'ヨーロッパ', box: [1670, 170, 590, 400] },
   africa: { name: 'アフリカ', box: [1595, 495, 760, 780] },
   westasia: { name: '西アジア', box: [2040, 440, 545, 355] },
-  easia: { name: '東・南アジア', box: [2440, 335, 845, 665] },
+  easia: { name: '南・東アジア', box: [2440, 335, 845, 665] },
 };
 
 function createMap(container, options = {}) {
@@ -334,7 +335,7 @@ function createMap(container, options = {}) {
       if (paths[code]) paths[code].setAttribute('class', 'target ' + cls);
     },
     // 国を画面の中心に持ってくる（まわりの国も少し見えるようにする）
-    focus(code, animate = true, contextRatio = 1) {
+    focus(code, animate = true, contextRatio = 1, include = null) {
       const rings = TARGET_RINGS[code];
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const r of rings) {
@@ -342,6 +343,10 @@ function createMap(container, options = {}) {
           minX = Math.min(minX, r[i]); maxX = Math.max(maxX, r[i]);
           minY = Math.min(minY, r[i + 1]); maxY = Math.max(maxY, r[i + 1]);
         }
+      }
+      if (include) { // この点（タップした場所など）も入るように広げる
+        minX = Math.min(minX, include.x); maxX = Math.max(maxX, include.x);
+        minY = Math.min(minY, include.y); maxY = Math.max(maxY, include.y);
       }
       const bw = maxX - minX, bh = maxY - minY;
       const maxDim = Math.max(bw, bh);
@@ -414,7 +419,7 @@ function createMap(container, options = {}) {
 const MODES = [
   { id: 'capital', emoji: '🏙️', name: '首都あてクイズ', desc: '国名 → 首都を4つからえらぶ' },
   { id: 'country', emoji: '🏳️', name: '国あてクイズ', desc: '首都 → 国名を4つからえらぶ' },
-  { id: 'locate', emoji: '📍', name: '場所あてクイズ', desc: '国名 → 地図をクリックしてさがす' },
+  { id: 'locate', emoji: '📍', name: '場所あてクイズ', desc: '国名 → 地図をタップしてさがす' },
   { id: 'which', emoji: '🔦', name: 'ここどこ？クイズ', desc: '光っている国の名前をあてる' },
   { id: 'mix', emoji: '🎲', name: 'ミックス', desc: '4種類のクイズがランダムに登場' },
   { id: 'time', emoji: '⏱️', name: '60秒タイムアタック', desc: '時間内に何問正解できるかな？' },
@@ -525,8 +530,10 @@ const Quiz = {
   map: null,
   state: null,
   timerId: null,
+  autoNextId: null,
 
   start(mode, opts = {}) {
+    clearTimeout(this.autoNextId);
     const pool = opts.pool || poolFor(Settings.region);
     const isTime = mode === 'time';
     const total = isTime ? Infinity : Math.min(opts.count || Settings.count, pool.length);
@@ -568,6 +575,7 @@ const Quiz = {
 
   next() {
     const s = this.state;
+    clearTimeout(this.autoNextId);
     if (!s.isTime && s.index >= s.total) return this.finish();
 
     if (s.used.size >= s.pool.length) s.used.clear();
@@ -581,8 +589,11 @@ const Quiz = {
 
     $('#question-label').textContent = q.label;
     $('#question-text').textContent = q.text;
-    $('#question-sub').textContent = q.mapClick ? '（地図をドラッグ・拡大してさがせるよ）' : '';
+    // 「ここどこ？」は地図と選択肢が主役。問題カードは出さずに画面をつめる
+    $('.question').hidden = q.type === 'which';
+    $('#zoom-buttons').hidden = !q.mapClick;
     $('#feedback').hidden = true;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     $('#hud-progress').textContent = s.isTime ? `${s.index}問目` : `${s.index} / ${s.total}`;
     $('#progress-fill').style.width = s.isTime
       ? Math.max(0, (s.timeLeft / 60) * 100) + '%'
@@ -597,10 +608,11 @@ const Quiz = {
       this.map.clearMarks();
       this.map.setClickable(!!q.mapClick);
       $('.map-hint').textContent = q.mapClick
-        ? '小さい国は拡大ボタンやピンチで大きくしてからクリック！'
+        ? '小さい国は拡大ボタンやピンチで大きくしてからタップ！'
         : '黄色く光っている国はどこかな？';
       if (q.mapClick) {
-        setQuizView('world');
+        // えらんだ範囲にあわせて表示する（「ぜんぶ」のときだけ世界地図）
+        setQuizView(Settings.region === 'all' ? 'world' : Settings.region);
       } else {
         // 光らせる国を、まわりの国ごと見えるくらいの大きさで真ん中に
         this.map.mark(country.code, 'is-quiz');
@@ -657,11 +669,12 @@ const Quiz = {
     let detail = '';
     if (!ok && nearest.code && nearest.code !== answerCode && nearest.dist <= Math.min(unitsPerPixel * 40, 130)) {
       this.map.mark(nearest.code, 'is-wrong');
-      detail = `クリックしたのは「${byCode.get(nearest.code).name}」のあたり`;
+      detail = `タップしたのは「${byCode.get(nearest.code).name}」のあたり`;
     } else if (!ok) {
-      detail = '海のあたりをクリックしたよ';
+      detail = '海のあたりをタップしたよ';
     }
-    this.map.focus(answerCode);
+    // まちがえたときは「押した場所」と「正解の国」が両方見えるようにうつす
+    this.map.focus(answerCode, true, 1, ok ? null : p);
     setTimeout(() => this.map.showCapital(s.q.country), 420);
     this.judge(ok, detail);
   },
@@ -703,10 +716,20 @@ const Quiz = {
       (detail ? `<span style="color:#5b7590">${detail}</span><br>` : '') +
       `<span style="font-size:13px">${c.hint}</span>`;
     $('#btn-next').textContent = (!s.isTime && s.index >= s.total) ? 'けっかを見る →' : 'つぎの問題 →';
+    // 答え合わせが画面の外に出ないようにする
+    requestAnimationFrame(() => fb.scrollIntoView({ behavior: 'smooth', block: 'end' }));
+    // タイムアタックで正解したときは、タップを待たずに次へ（時間がもったいない）
+    clearTimeout(this.autoNextId);
+    if (s.isTime && ok) {
+      this.autoNextId = setTimeout(() => {
+        if (this.state === s && !screens.quiz.hidden && s.timeLeft > 0) this.next();
+      }, 900);
+    }
   },
 
   finish() {
     clearInterval(this.timerId);
+    clearTimeout(this.autoNextId);
     const s = this.state;
     Sound.finish();
     const total = s.isTime ? s.answered : s.total;
@@ -730,6 +753,8 @@ const Quiz = {
     const isBest = s.score > best;
     if (isBest) Store.set(key, s.score);
     $('#result-best').hidden = !isBest;
+    $('#result-combo').textContent = `🔥 さいこうれんぞく ${s.bestCombo}問`;
+    $('#result-bestscore').textContent = `🏆 じこベスト ${Math.max(best, s.score)}てん`;
 
     const wrapper = $('#result-wrong-wrap');
     const list = $('#result-wrong');
