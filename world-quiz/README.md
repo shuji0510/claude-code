@@ -13,6 +13,18 @@
 npx http-server world-quiz -o
 ```
 
+## 人にわたす・公開する
+
+```
+node world-quiz/build.js
+```
+
+でCSS・JS・地図データを1枚のHTMLにまとめた `world-quiz/dist/index.html`（約95KB）ができます。
+
+- **ファイルでわたす**：`dist/index.html` をメールやAirDropで送るだけ。相手はダブルクリックで遊べます（通信不要）
+- **Webで公開する**：静的ファイルだけなので、`dist/` を Vercel / Netlify / GitHub Pages などにそのまま置けます
+- `dist/artifact.html` は、外枠（`<html>`/`<head>`）が公開側で付くホスティング用の断片です
+
 ## 6つのモード
 
 | モード | ないよう |
