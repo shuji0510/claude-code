@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>世界の国と首都マスター｜60か国チャレンジ</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="appbar">
+  <button id="btn-home" class="icon-btn" title="ホームへ" hidden>← もどる</button>
+  <h1 class="app-title">🌍 世界の国と首都マスター</h1>
+  <button id="btn-sound" class="icon-btn" title="音のオン・オフ">🔊</button>
+</header>
+
+<main>
+
+<!-- ========== ホーム ========== -->
+<section id="screen-home" class="screen">
+  <p class="lead">プリントの<strong>60か国</strong>を、ゲームで覚えよう！<br>やりたいモードをえらんでね。</p>
+
+  <h2 class="section-title">1. 出す範囲</h2>
+  <div id="region-chips" class="chips"></div>
+
+  <h2 class="section-title">2. 問題数</h2>
+  <div id="count-chips" class="chips"></div>
+
+  <h2 class="section-title">3. モードをえらぶ</h2>
+  <div id="mode-cards" class="mode-grid"></div>
+
+  <h2 class="section-title">きろく</h2>
+  <div id="records" class="records"></div>
+  <button id="btn-reset-records" class="text-btn">きろくを消す</button>
+</section>
+
+<!-- ========== クイズ ========== -->
+<section id="screen-quiz" class="screen" hidden>
+  <div class="hud">
+    <div class="hud-item"><span class="hud-label">もんだい</span><span id="hud-progress">1 / 10</span></div>
+    <div class="hud-item"><span class="hud-label">とくてん</span><span id="hud-score">0</span></div>
+    <div class="hud-item"><span class="hud-label">れんぞく</span><span id="hud-combo">0</span></div>
+    <div class="hud-item" id="hud-timer-wrap" hidden><span class="hud-label">のこり</span><span id="hud-timer">60</span></div>
+  </div>
+  <div class="progressbar"><div id="progress-fill"></div></div>
+
+  <div class="question">
+    <p id="question-label" class="question-label">この国の首都は？</p>
+    <p id="question-text" class="question-text">日本</p>
+    <p id="question-sub" class="question-sub"></p>
+  </div>
+
+  <div id="answer-area">
+    <div id="map-area" hidden>
+      <div class="map-toolbar">
+        <span class="map-hint">小さい国は拡大してからクリック！</span>
+        <div id="zoom-buttons" class="zoom-buttons"></div>
+      </div>
+      <div id="quiz-map" class="map-box"></div>
+    </div>
+    <div id="choices" class="choices"></div>
+  </div>
+
+  <div id="feedback" class="feedback" hidden>
+    <p id="feedback-title" class="feedback-title"></p>
+    <p id="feedback-detail" class="feedback-detail"></p>
+    <button id="btn-next" class="primary-btn">つぎの問題 →</button>
+  </div>
+</section>
+
+<!-- ========== 結果 ========== -->
+<section id="screen-result" class="screen" hidden>
+  <div class="result-card">
+    <p class="result-rank" id="result-rank">A</p>
+    <p class="result-title" id="result-title">よくできました！</p>
+    <p class="result-score"><span id="result-correct">0</span> / <span id="result-total">0</span> 問せいかい</p>
+    <p class="result-points">とくてん <strong id="result-points">0</strong> てん<span id="result-best" class="best-badge" hidden>🏆 じこベスト更新！</span></p>
+  </div>
+  <div id="result-wrong-wrap" hidden>
+    <h2 class="section-title">まちがえた問題</h2>
+    <ul id="result-wrong" class="wrong-list"></ul>
+  </div>
+  <div class="result-buttons">
+    <button id="btn-retry-wrong" class="primary-btn" hidden>まちがえた問題だけ もう一度</button>
+    <button id="btn-retry" class="secondary-btn">同じモードでもう一回</button>
+    <button id="btn-to-home" class="secondary-btn">ホームへ</button>
+  </div>
+</section>
+
+<!-- ========== 学習モード ========== -->
+<section id="screen-study" class="screen" hidden>
+  <p class="lead">地図の国や下のリストをクリックすると、国・首都・場所がわかるよ。</p>
+  <div class="map-toolbar">
+    <div id="study-zoom-buttons" class="zoom-buttons"></div>
+  </div>
+  <div id="study-map" class="map-box"></div>
+  <div id="study-info" class="study-info">
+    <p class="study-info-empty">地図かリストから国をえらんでね</p>
+  </div>
+  <div id="study-list" class="study-list"></div>
+</section>
+
+</main>
+
+<footer class="footer">地図データ: Natural Earth（パブリックドメイン）を簡略化して使用</footer>
+
+<script src="data.js"></script>
+<script src="mapdata.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
