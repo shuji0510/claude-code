@@ -2,12 +2,17 @@
 // no  : プリントの番号
 // code: 地図データ（mapdata.js）と対応する国コード
 // lat/lng: 首都の位置
+// sub: true …「ぜんぶ」の中の一部をさらにしぼりこむための範囲。
+//              問題の選択肢づくりや学習モードの見出しでは使わない
+// view: 地図の表示範囲（app.js の VIEWS のキー）
 const REGIONS = [
   { id: 'all', name: 'ぜんぶ', emoji: '🌍', range: [1, 60] },
   { id: 'america', name: 'アメリカ大陸', emoji: '🗽', range: [1, 10] },
   { id: 'europe', name: 'ヨーロッパ', emoji: '🏰', range: [11, 29] },
   { id: 'africa', name: 'アフリカ', emoji: '🦁', range: [30, 36] },
-  { id: 'westasia', name: '西アジア・中央アジア', emoji: '🕌', range: [37, 48] },
+  { id: 'westasia8', name: '西アジア', emoji: '🕌', range: [37, 44], sub: true, view: 'westasia' },
+  { id: 'westasia', name: '西アジア＋中央アジア', emoji: '🕌', range: [37, 48] },
+  { id: 'centralasia', name: '中央アジアなど', emoji: '🐪', range: [45, 48], sub: true, view: 'westasia' },
   { id: 'easia', name: '南・東アジア', emoji: '🐼', range: [49, 60] },
 ];
 

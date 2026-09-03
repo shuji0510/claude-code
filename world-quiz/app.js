@@ -207,7 +207,8 @@ function createMap(container, options = {}) {
   function aspect() {
     const r = svg.getBoundingClientRect();
     if (r.width > 0) pxWidth = r.width;
-    return r.height > 0 ? r.width / r.height : 2;
+    // 画面に出る前など、大きさが取れないときは仮の値を返す（0除算でviewBoxが壊れる）
+    return (r.width > 0 && r.height > 0) ? r.width / r.height : 2;
   }
   // 横長の表示領域では、世界全体（南北1460）が入るだけの幅を許す
   function maxViewWidth() {
@@ -454,6 +455,7 @@ function createMap(container, options = {}) {
 const MODES = [
   { id: 'capital', emoji: '🏙️', name: '首都あてクイズ', desc: '国名 → 首都を4つからえらぶ' },
   { id: 'country', emoji: '🏳️', name: '国あてクイズ', desc: '首都 → 国名を4つからえらぶ' },
+  { id: 'names', emoji: '🔁', name: '国と首都ミックス', desc: '「国→首都」と「首都→国」が両方出る' },
   { id: 'locate', emoji: '📍', name: '場所あてクイズ', desc: '国名 → 地図をタップしてさがす' },
   { id: 'which', emoji: '🔦', name: 'ここどこ？クイズ', desc: '光っている国の名前をあてる' },
   { id: 'mix', emoji: '🎲', name: 'ミックス', desc: '4種類のクイズがランダムに登場' },
@@ -462,14 +464,23 @@ const MODES = [
 ];
 const MODE_NAME = Object.fromEntries(MODES.map((m) => [m.id, m.name]));
 const QUIZ_TYPES = ['capital', 'country', 'locate', 'which'];
+const NAME_TYPES = ['capital', 'country']; // 地図を使わない、名前だけのクイズ
 
 const Settings = {
   region: Store.get('region', 'all'),
   count: Store.get('count', 10),
 };
 
+// 選択肢づくりや学習モードの見出しで使う「大きな地域」。しぼりこみ用（sub）は数えない
 function regionOf(country) {
-  return REGIONS.find((r) => r.id !== 'all' && country.no >= r.range[0] && country.no <= r.range[1]);
+  return REGIONS.find((r) => r.id !== 'all' && !r.sub && country.no >= r.range[0] && country.no <= r.range[1]);
+}
+const regionById = (id) => REGIONS.find((r) => r.id === id) || REGIONS[0];
+// その範囲を出すときの地図の表示範囲
+function viewKeyForRegion(regionId) {
+  const r = regionById(regionId);
+  const key = r.view || r.id;
+  return VIEWS[key] ? key : 'world';
 }
 function poolFor(regionId) {
   const r = REGIONS.find((x) => x.id === regionId) || REGIONS[0];
@@ -515,12 +526,16 @@ function pickWeighted(pool, exclude) {
   return list[list.length - 1];
 }
 
-// まぎらわしい選択肢は、なるべく同じ地域から選ぶ
-function makeChoices(answer, key) {
+// まぎらわしい選択肢は「いま出題している範囲 → 同じ地域 → それ以外」の順に選ぶ。
+// 範囲をしぼって練習しているときは、その中の国どうしで見分ける練習になる
+function makeChoices(answer, key, pool = COUNTRIES) {
   const region = regionOf(answer);
-  const near = COUNTRIES.filter((c) => c.no !== answer.no && regionOf(c) === region);
-  const far = COUNTRIES.filter((c) => c.no !== answer.no && regionOf(c) !== region);
-  const others = shuffle(near).concat(shuffle(far));
+  const inPool = new Set(pool.map((c) => c.no));
+  const rest = COUNTRIES.filter((c) => c.no !== answer.no);
+  const same = rest.filter((c) => inPool.has(c.no));
+  const near = rest.filter((c) => !inPool.has(c.no) && regionOf(c) === region);
+  const far = rest.filter((c) => !inPool.has(c.no) && regionOf(c) !== region);
+  const others = shuffle(same).concat(shuffle(near), shuffle(far));
   const picked = [answer];
   for (const c of others) {
     if (picked.length >= 4) break;
@@ -530,21 +545,21 @@ function makeChoices(answer, key) {
   return shuffle(picked);
 }
 
-function buildQuestion(country, type) {
+function buildQuestion(country, type, pool = COUNTRIES) {
   const q = { country, type };
   if (type === 'capital') {
     q.label = 'この国の首都は？';
     q.text = country.name;
-    q.choices = makeChoices(country, 'capital').map((c) => ({ text: c.capital, ok: c.no === country.no }));
+    q.choices = makeChoices(country, 'capital', pool).map((c) => ({ text: c.capital, ok: c.no === country.no }));
   } else if (type === 'country') {
     q.label = 'この都市を首都とする国は？';
     q.text = country.capital;
-    q.choices = makeChoices(country, 'name').map((c) => ({ text: c.name, ok: c.no === country.no }));
+    q.choices = makeChoices(country, 'name', pool).map((c) => ({ text: c.name, ok: c.no === country.no }));
   } else if (type === 'which') {
     q.label = '光っている国はどこ？';
     q.text = '？？？';
     q.useMap = true;
-    q.choices = makeChoices(country, 'name').map((c) => ({ text: c.name, ok: c.no === country.no }));
+    q.choices = makeChoices(country, 'name', pool).map((c) => ({ text: c.name, ok: c.no === country.no }));
   } else {
     q.label = 'この国を地図からさがそう！';
     q.text = country.name;
@@ -627,8 +642,10 @@ const Quiz = {
     if (s.used.size >= s.pool.length) s.used.clear();
     const country = pickWeighted(s.pool, s.used);
     s.used.add(country.no);
-    const type = (s.mode === 'mix' || s.mode === 'time') ? sample(QUIZ_TYPES) : s.mode;
-    const q = buildQuestion(country, type);
+    const type = s.mode === 'names' ? sample(NAME_TYPES)
+      : (s.mode === 'mix' || s.mode === 'time') ? sample(QUIZ_TYPES)
+      : s.mode;
+    const q = buildQuestion(country, type, s.pool);
     s.q = q;
     s.locked = false;
     s.index++;
@@ -658,7 +675,7 @@ const Quiz = {
         : '黄色く光っている国はどこかな？';
       if (q.mapClick) {
         // えらんだ範囲にあわせて表示する（「ぜんぶ」のときだけ世界地図）
-        setQuizView(Settings.region === 'all' ? 'world' : Settings.region);
+        setQuizView(viewKeyForRegion(Settings.region));
       } else {
         // 光らせる国を、まわりの国ごと見えるくらいの大きさで真ん中に
         this.map.mark(country.code, 'is-quiz');
@@ -828,6 +845,7 @@ const Quiz = {
 const Study = {
   map: null,
   selected: null,
+  filter: 'all',
   open() {
     showScreen('study');
     if (!this.map) {
@@ -838,31 +856,46 @@ const Study = {
         },
       });
       this.map.setClickable(true);
-      this.renderList();
-      this.renderZoom();
     }
+    // ホームでえらんだ範囲を、そのまま一覧のしぼりこみに使う
+    this.setFilter(Settings.region, false);
     requestAnimationFrame(() => this.map.render());
   },
-  renderZoom() {
-    const wrap = $('#study-zoom-buttons');
+  // 一覧を地域でしぼりこむ
+  setFilter(regionId, withSound = true) {
+    this.filter = regionId;
+    this.renderFilterChips();
+    this.renderList();
+    if (withSound) Sound.tap();
+    this.map.setView(viewKeyForRegion(regionId));
+    // いまの範囲の国を地図でも色分けする
+    this.map.clearMarks();
+    if (regionId !== 'all') {
+      for (const c of poolFor(regionId)) this.map.mark(c.code, 'is-inrange');
+    }
+    $('#study-info').innerHTML = '<p class="study-info-empty">地図かリストから国をえらんでね</p>';
+    this.selected = null;
+  },
+  renderFilterChips() {
+    const wrap = $('#study-filter');
     wrap.innerHTML = '';
-    for (const key in VIEWS) {
+    for (const r of REGIONS) {
       const b = document.createElement('button');
-      b.className = 'zoom-btn' + (key === 'world' ? ' selected' : '');
-      b.textContent = VIEWS[key].name;
-      b.addEventListener('click', () => {
-        [...wrap.children].forEach((x) => x.classList.remove('selected'));
-        b.classList.add('selected');
-        this.map.setView(key);
-        Sound.tap();
-      });
+      b.className = 'chip' + (r.id === this.filter ? ' selected' : '');
+      const n = r.range[1] - r.range[0] + 1;
+      b.textContent = `${r.emoji} ${r.name}（${n}）`;
+      b.addEventListener('click', () => this.setFilter(r.id));
       wrap.appendChild(b);
     }
   },
   renderList() {
     const wrap = $('#study-list');
     wrap.innerHTML = '';
-    for (const r of REGIONS.filter((x) => x.id !== 'all')) {
+    // 「ぜんぶ」のときは地域ごとに見出しを付け、しぼりこみ中はその範囲だけ出す
+    const groups = this.filter === 'all'
+      ? REGIONS.filter((x) => x.id !== 'all' && !x.sub)
+      : [regionById(this.filter)];
+    for (const r of groups) {
       const h = document.createElement('p');
       h.className = 'study-group-title';
       h.textContent = `${r.emoji} ${r.name}（${r.range[0]}〜${r.range[1]}）`;
@@ -883,6 +916,9 @@ const Study = {
   select(country, fromList) {
     this.selected = country;
     this.map.clearMarks();
+    if (this.filter !== 'all') {
+      for (const c of poolFor(this.filter)) this.map.mark(c.code, 'is-inrange');
+    }
     this.map.mark(country.code, 'is-selected');
     if (fromList) {
       this.map.focus(country.code);
